@@ -1,0 +1,47 @@
+---
+- name: Add user and key
+  hosts: nodes
+  gather_facts: false
+  become: true
+  vars:
+    username: cloudru
+    password: cloudpass
+  tasks:
+    - name: Add user with password
+      ansible.builtin.user:
+        name: "{{ username }}"
+        password: "{{ password | password_hash('sha512') }}"
+    
+    - name: Mkdir .ssh directory if not exists
+      ansible.builtin.file:
+        path: "/home/{{ username }}/.ssh"
+        state: directory
+        owner: "{{ username }}"
+        group: "{{ username }}"
+        mode: "0700"
+    
+    - name: Copy authorized_keys file with public key
+      ansible.builtin.copy:
+        src: authorized_keys
+        dest: "/home/{{ username }}/.ssh/"
+        owner: "{{ username }}"
+        group: "{{ username }}"
+        mode: "0600"
+    
+    - name: Accept public key authentication and deny root login at ssh
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        line: "{{ line_item }}"
+      loop:
+        - "PubkeyAuthentication yes"
+        - "PermitRootLogin no"
+      loop_control:
+        loop_var: line_item
+      notify:
+        - Restart ssh
+
+  handlers:
+    - name: Restart sshd
+      ansible.builtin.service:
+        name: sshd
+        state: restarted

@@ -1,0 +1,67 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app.kubernetes.io/name: webserver
+  name: webserverns
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/name: webserver
+  name: webserver-depl
+  namespace: webserverns
+spec:
+  selector:
+    matchLabels:
+      app: webserver
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: webserver
+    spec:
+      containers:
+      - name: webserver
+        image: dizz23/webserver:3.0
+        ports:
+        - containerPort: 8000
+          protocol: TCP
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - "[ -f /proc/1/exe ] && readlink -f /proc/1/exe | grep python"
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        readinessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /hostname
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        env:
+        - name: UUID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.uid
+        - name: AUTHOR
+          value: "dizz23"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/name: webserver
+  name: webserver-service
+  namespace: webserverns
+spec:
+  selector:
+    app: webserver
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000
